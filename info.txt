@@ -1,4 +1,5 @@
-name = "Zoe Vernon"
-SID = "0123456789"
-email = "zoe_vernon@berkeley.edu"
-github_name = "zoevernon"
+name = "Todd Faulkenberry"
+SID = "3033134639"
+email = "todd_faulkenberry@berkeley.edu"
+github_name = "tfaulk13"
+
