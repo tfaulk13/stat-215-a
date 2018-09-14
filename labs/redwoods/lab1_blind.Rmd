@@ -1,6 +1,5 @@
 ---
 title: "Lab 1 - Redwood Data, Stat 215A, Fall 2018"
-author: "Todd Faulkenberry"
 date: "9/13/2018"
 header-includes:
    - \usepackage{float}
