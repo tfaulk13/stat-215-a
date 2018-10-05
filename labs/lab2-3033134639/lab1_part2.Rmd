@@ -1,0 +1,84 @@
+---
+title: "Lab 1 Part 2 - Stat 215A"
+author: "Todd Faulkenberry"
+date: "10/5/2018"
+output: 
+  pdf_document:
+    fig_width: 6
+    fig_height: 4
+---
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE}
+suppressMessages(library(tidyverse))
+library(tidyverse)
+library(lubridate)
+library(ggpomological)
+
+
+source('R/load.R')
+source('R/clean.R')
+```
+
+
+# Density Estimate
+
+Below is a density estimate of temperature with bandwidths 1-5.
+
+
+```{r, echo = FALSE, fig.align = 'center'}
+ggplot(data = all_data, aes(x = temperature)) +
+  geom_density(adjust = 1, color = "#c03728") +
+  geom_density(adjust = 2, color = "#919c4c") +
+  geom_density(adjust = 3, color = "#fd8f24") +
+  geom_density(adjust = 4, color = "#828585") +
+  geom_density(adjust = 5, color = "#6f5438") +
+  labs(title = "Gaussian Density Plot for Different Bandwidths",
+       x = "Temperature",
+       y = "Density") +
+  theme_pomological() +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+
+In the graph above, the kernels with the more extreme values have lower bandwidth. This demonstrates the trade off between bias and variance that we experience with bandwidth. If we choose a bandwidth that is too high, our estimate will systemically differ from the true value, creating bias. If we choose one too low, our estimate becomes jittery, changing dramatically in ways we don't expect. The graph below demonstrates this problem by showing two densities: One at one-tenth of the default bandwidth, and one ten times the default bandwidth:
+
+
+```{r, echo = FALSE, fig.align = 'center'}
+ggplot(data = all_data, aes(x = temperature)) +
+  geom_density(adjust = 0.1, color = "#919c4c") +
+  geom_density(adjust = 10, color = "#c03728") +
+  labs(title = "Gaussian Density Plot for Extreme Bandwidths",
+       subtitle = "Higher bandwidth has more bias; lower bandwidth has more variance", 
+       x = "Temperature",
+       y = "Density") +
+  theme_pomological() +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+
+The lower bandwidth overfits the model, giving us a variance that very jagged and not reflective of the underlying data. Meanwhile, the higher the bandwidth, the smoother data. This creates a similarly non-representative estimate, but in the opposite direction.
+
+\pagebreak
+
+# Loess Smoothing
+
+
+Next, I plotted temperature against humidity for all data that was collected at 8:00am from the tree(s):
+
+
+```{r, echo = FALSE, message = FALSE, fig.align = 'center'}
+ggplot(data = filter(all_data, time == "2018-10-05 8:00:00"), aes(x = humidity, y = temperature)) +
+  geom_point(color = "#828585") +
+  geom_smooth(color = "#c03728") +
+  labs(title = "Loess Smoothing of Temperature on Humidity",
+       subtitle = "Measurements taken at 8:00am",
+       x = "Humidity",
+       y = "Temperature") +
+  theme_pomological() +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold"))
+```
+
+
+Here, I used bandwidth and polynomial (quadratic) for the loess smoother. I stuck with the default because higher degrees did not improve the fit substantially. Even though this smoother has higher variance at its boundaries (especially its left one), it has lower bias than, say, a liner polynomial while not overfitting the data. We see a clear negative relationship between temperature and humidity -- an increase in temperature is associated with a decrease in humidity. 
+
