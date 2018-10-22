@@ -1,5 +1,5 @@
 ## Function to load binary data -----------------------------------------------
-loadRData <- function(path = "data/", file = "lingBinary.Rdata") {
+loadRData <- function(path = 'data/', file = 'lingBinary.Rdata') {
   #
   # This function loads the .Rdata for this lab. Arguments can be generalized
   # to load in any .Rdata file.

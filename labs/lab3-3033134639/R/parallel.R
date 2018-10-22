@@ -1,13 +1,13 @@
 source('~/Documents/stat-215-a/labs/lab3-3033134639/R/load.R')
 source('~/Documents/stat-215-a/labs/lab3-3033134639/R/functions.R')
-
+ 
 library(foreach)
 library(parallel)
 library(doParallel)
 library(dplyr)
 library(readr)
 
-ling.binary <- loadRData(path = '~/Documents/stat-215-a/labs/lab3-3033134639/data/')
+ling.binary <- loadRData(path = '~/Documents/stat-215-a/labs/lab3-3033134639/data/', file = 'lingBinary.Rdata')
 
 ling.data <- ling.binary %>%
   select(7:474)
