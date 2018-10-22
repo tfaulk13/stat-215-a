@@ -1,4 +1,6 @@
-setwd('~/Documents/stat-215-a/labs/lab3-3033134639')
+working.directory <- '~/Documents/stat-215-a/labs/lab3-3033134639'
+
+setwd(working.directory)
 
 source('R/load.R')
 source('R/functions.R')
@@ -9,7 +11,7 @@ library(doParallel)
 library(dplyr)
 library(readr)
 
-ling.binary <- loadRData(path = 'data/', file = 'lingBinary.Rdata')
+ling.binary <- loadRData(path = working.directory, file = '/data/lingBinary.Rdata')
 
 ling.data <- ling.binary %>%
   select(7:474)
