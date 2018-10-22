@@ -7,7 +7,7 @@ library(doParallel)
 library(dplyr)
 library(readr)
 
-working.directory <- file.path('data/')
+working.directory <- file.path('data')
 
 load(file.path(working.directory, 'lingBinary.Rdata'))
 
