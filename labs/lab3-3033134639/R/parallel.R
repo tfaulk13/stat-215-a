@@ -1,5 +1,5 @@
-source('~/R/load.R')
-source('~/R/functions.R')
+source('R/load.R')
+source('R/functions.R')
  
 library(foreach)
 library(parallel)
@@ -7,7 +7,7 @@ library(doParallel)
 library(dplyr)
 library(readr)
 
-working.directory <- file.path('~/data')
+working.directory <- file.path('data/')
 
 load(file.path(working.directory, 'lingBinary.Rdata'))
 
@@ -33,7 +33,7 @@ result.col.names <- c('k2means', 'k3means') #, 'k4means', 'k5means', 'k6means', 
 results.df <- as.data.frame(results.list, col.names = result.col.names)
 
 
-write_csv(results.df, '~/results.csv')
+write_csv(results.df, 'data/results.csv')
 
 
 
