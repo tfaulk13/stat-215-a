@@ -1,15 +1,11 @@
-source('load.R')
+source('R/load.R')
+source('R/functions.R')
 
 library(foreach)
 library(parallel)
 library(doParallel)
 library(dplyr)
-
-
-loadRData <- function(path = "~/data/", file = "lingBinary.Rdata") {
-  file_to_load <- paste0(path, file)
-  get(load(file_to_load))
-}
+library(readr)
 
 ling.binary <- loadRData()
 
@@ -30,12 +26,12 @@ results.list <- foreach(i = 2:3) %dopar% {
   unlist(results)
 }
 
-result.col.names <- c('k2means', 'k3means', 'k4means', 'k5means', 'k6means', 'k7means', 'k8means', 'k9means', 'k10means')
+result.col.names <- c('k2means', 'k3means') #, 'k4means', 'k5means', 'k6means', 'k7means', 'k8means', 'k9means', 'k10means')
 
 results.df <- as.data.frame(results.list, col.names = result.col.names)
 
 
-write_csv(results.df, 'results.csv')
+write_csv(results.df, 'data/results.csv')
 
 
 
