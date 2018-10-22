@@ -11,7 +11,7 @@ library(doParallel)
 library(dplyr)
 library(readr)
 
-ling.binary <- loadRData(path = working.directory, file = 'lingBinary.Rdata')
+ling.binary <- load('lingBinary.Rdata')
 
 ling.data <- ling.binary %>%
   select(7:474)
