@@ -1,7 +1,3 @@
-#working.directory <- '~/Documents/stat-215-a/labs/lab3-3033134639/'
-
-#setwd(working.directory)
-
 source('./R/load.R')
 source('./R/functions.R')
  
@@ -11,7 +7,9 @@ library(doParallel)
 library(dplyr)
 library(readr)
 
-load('./lingBinary.Rdata')
+working.directory <- './data'
+
+load(file.path(working.directory, 'lingBinary.Rdata'))
 
 ling.data <- lingBinary %>%
   select(7:474)
@@ -35,7 +33,7 @@ result.col.names <- c('k2means', 'k3means') #, 'k4means', 'k5means', 'k6means', 
 results.df <- as.data.frame(results.list, col.names = result.col.names)
 
 
-write_csv(results.df, 'data/results.csv')
+write_csv(results.df, './results.csv')
 
 
 
