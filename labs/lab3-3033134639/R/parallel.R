@@ -1,4 +1,10 @@
 source('R/load.R')
+
+library(foreach)
+library(parallel)
+library(doParallel)
+library(dplyr)
+
 ling.binary <- loadRData()
 
 ling.data <- ling.binary %>%
@@ -23,7 +29,7 @@ result.col.names <- c('k2means', 'k3means', 'k4means', 'k5means', 'k6means', 'k7
 results.df <- as.data.frame(results.list, col.names = result.col.names)
 
 
-write.csv(results.df, 'results.csv')
+write_csv(results.df, 'results.csv')
 
 
 
