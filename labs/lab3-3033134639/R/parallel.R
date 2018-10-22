@@ -5,17 +5,23 @@ library(parallel)
 library(doParallel)
 library(dplyr)
 
+
+loadRData <- function(path = "~/data/", file = "lingBinary.Rdata") {
+  file_to_load <- paste0(path, file)
+  get(load(file_to_load))
+}
+
 ling.binary <- loadRData()
 
 ling.data <- ling.binary %>%
   select(7:474)
 
-nCores <- 9
+nCores <- 2
 registerDoParallel(nCores)
-repetitions <- 100
+repetitions <- 3
 
 
-results.list <- foreach(i = 2:10) %dopar% {
+results.list <- foreach(i = 2:3) %dopar% {
   results <- foreach(j = 1:repetitions) %do% {
     clusterSimKmeans(data = ling.data, 
                      sub.samp.percent = .5, 
