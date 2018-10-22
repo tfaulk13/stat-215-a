@@ -1,17 +1,18 @@
 source('R/load.R')
 ling.binary <- loadRData()
 
-source('R/clean.R')
+ling.data <- ling.binary %>%
+  select(7:474)
 
 nCores <- 9
 registerDoParallel(nCores)
-repetitions = 100
+repetitions <- 100
 
 
-results.list <- foreach(i = 2:3) %dopar% {
+results.list <- foreach(i = 2:10) %dopar% {
   results <- foreach(j = 1:repetitions) %do% {
     clusterSimKmeans(data = ling.data, 
-                     sub.samp.percent = .1, 
+                     sub.samp.percent = .5, 
                      num.centers = i)
   }
   unlist(results)
