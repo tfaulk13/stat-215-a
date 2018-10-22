@@ -7,9 +7,7 @@ library(doParallel)
 library(dplyr)
 library(readr)
 
-working.directory <- file.path('data')
-
-load(file.path(working.directory, 'lingBinary.Rdata'))
+load('lingBinary.Rdata')
 
 ling.data <- lingBinary %>%
   select(7:474)
