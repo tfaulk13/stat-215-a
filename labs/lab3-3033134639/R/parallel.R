@@ -1,4 +1,4 @@
-working.directory <- '/accounts/campus/todd_faulkenberry/Documents/stat-215-a/labs/lab3-3033134639/'
+working.directory <- '~/Documents/stat-215-a/labs/lab3-3033134639/'
 
 setwd(working.directory)
 

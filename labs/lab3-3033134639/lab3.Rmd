@@ -35,19 +35,42 @@ ling.binary <- loadRData()
 
 ```
 
+## Introduction
+
+In this project, we will implement an analyze an algorithim for computational stability that was pioneered by Ben Hur et. al @benhur. During our analysis, we will discuss the choice of similarity measure, compare C++ and R versions of the algorithim, and use the algorithm to see how many clusters it suggests. We will end the paper with a more general discussion of the algorithm and if it seems trustworthy after our analysis.
+
+## Discussion of choice of similarity matrix
+
+### Compare C++ and R versions of the similarity matrix
 
 
-Feel free to decide the sections for your self.
-
-The things you need to do are:
-
-## Compare C++ and R versions of the similarity matrix
-
-## Make the plot for part 3
-
-## Discuss how many clusters to choose
-
-## Discuss whether you trust the method or not
 
 
-Take extra care on your code for this lab. A significant portion of the grade will be on your code!
+## Discussion of the algorithm
+
+### Plot from part 3
+
+### Discuss how many clusters to choose
+
+### Discuss whether you trust the method or not
+
+
+## Bibliography
+
+---
+references:
+- id: benhur
+  title: A stability based method for discovering structure in clustered data
+  author:
+  - family: Ben-Hur et. al.
+    given: Asa
+  URL: 'http://www.cs.colostate.edu/~asa/papers/psb02.pdf'
+  publisher: Pacific Symposium on Biocomputing
+  page: 6-17
+  type: article-journal
+  issued:
+    year: 2002
+---
+
+
+
