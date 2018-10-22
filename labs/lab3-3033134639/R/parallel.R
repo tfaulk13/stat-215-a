@@ -1,4 +1,4 @@
-source('R/load.R')
+source('load.R')
 
 library(foreach)
 library(parallel)
