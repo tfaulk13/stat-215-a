@@ -1,3 +1,5 @@
+library(readr)
+
 ## Function to load binary data -----------------------------------------------
 loadRData <- function(path = 'data/', file = 'lingBinary.Rdata') {
   #
@@ -13,5 +15,11 @@ loadRData <- function(path = 'data/', file = 'lingBinary.Rdata') {
   #   a data.frame with the columns: ID, CITY, STATE, ZIP, lat, long, and 467     #   columns of binary encoded data.
   
   file_to_load <- paste0(path, file)
-  get(load(file_to_load))
+  load(file_to_load)
 }
+
+ling.binary <- loadRData()
+
+
+## Loading k-means data -------------------------------------------------------
+data_kmeans <- read_csv('data/results.csv')

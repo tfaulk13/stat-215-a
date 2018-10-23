@@ -1,4 +1,6 @@
+library(dplyr)
+
 ## Dropping non-numerical columns from ling.binary to do kmeans ---------------
 ling.data <- ling.binary %>%
-  select(7:474)
+  dplyr::select(7:474)
 

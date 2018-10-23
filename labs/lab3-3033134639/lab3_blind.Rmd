@@ -1,6 +1,5 @@
 ---
 title: "Lab 3 - Parallelizing k-means Stat 215A, Fall 2018"
-author: "Todd Faulkenberry"
 date: "20 October 2018"
 header-includes:
    - \usepackage{float}
@@ -102,6 +101,3 @@ references:
   issued:
     year: 2002
 ---
-
-
-

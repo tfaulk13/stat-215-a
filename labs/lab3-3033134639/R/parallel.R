@@ -7,26 +7,26 @@ library(doParallel)
 library(dplyr)
 library(readr)
 
-load('lingBinary.Rdata')
+load('data/lingBinary.Rdata')
 
 ling.data <- lingBinary %>%
   select(7:474)
 
-nCores <- 2
+nCores <- 4
 registerDoParallel(nCores)
-repetitions <- 3
+repetitions <- 100
 
 
-results.list <- foreach(i = 2:3) %dopar% {
+results.list <- foreach(i = 2:10) %dopar% {
   results <- foreach(j = 1:repetitions) %do% {
     clusterSimKmeans(data = ling.data, 
-                     sub.samp.percent = .5, 
+                     sub.samp.percent = .2, 
                      num.centers = i)
   }
   unlist(results)
 }
 
-result.col.names <- c('k2means', 'k3means') #, 'k4means', 'k5means', 'k6means', 'k7means', 'k8means', 'k9means', 'k10means')
+result.col.names <- c('k02means', 'k03means', 'k04means', 'k05means', 'k06means', 'k07means', 'k08means', 'k09means', 'k10means')
 
 results.df <- as.data.frame(results.list, col.names = result.col.names)
 
