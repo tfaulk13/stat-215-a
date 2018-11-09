@@ -1,0 +1,625 @@
+\documentclass[a4paper]{article}
+
+\usepackage[margin=1.2in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsthm,bm}
+\usepackage{latexsym,color,minipage-marginpar,caption,multirow,verbatim}
+\usepackage{enumerate}
+\usepackage{fancyhdr}
+\usepackage{subcaption}
+\usepackage{caption}
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Lab 4 - Stat 215A}
+\cfoot{Page \thepage}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}}
+
+\newcommand{\RR}{\mathbb{R}}
+\newcommand{\PP}{\mathbb{P}}
+\newcommand{\EE}{\mathbb{E}}
+
+\newcommand{\cP}{\mathcal{P}}
+\newcommand{\cX}{\mathcal{X}}
+\newcommand{\cB}{\mathcal{B}}
+
+\newcommand{\ep}{\varepsilon}
+\newcommand{\widebar}{\overline}
+
+\newcommand{\simiid}{\overset{\textrm{i.i.d.}}{\sim}}
+\newcommand{\simind}{\overset{\textrm{ind.}}{\sim}}
+\newcommand{\red}{\color{red}}
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+\title{{\bf Lab 4 - Stat 215A, Fall 2018}\\
+	{Cloud Detection in the Arctic}\\
+	\vspace{2mm}}
+	\author{Your Names}
+\date{\today}
+\maketitle
+\vspace{-2em}
+
+\section{Introduction}
+
+In the age of climate change, the increasing concentration of carbon dioxide in the Earth's atmosphere has important, far-reaching impacts on the temperature of our environment and thus how our environment functions. Understanding these effects is of the utmost importance for scholars, scientists, and policymakers as we strive to create a more sustainable society. This understanding is especially important in the Arctic Circle, where many scientific models expect some of the sharpest increases in atmospheric carbon dioxide levels and subsequently surface air temperatures. By measuring Arctic cloud cover -- effectively, a barrier that helps mitigate surface air temperatures -- scientists can gain a more comprehensive understanding of the state of the Arctic climate. The value of such an understanding inspired Yu et. al's 2008 on paper on cloud detection, which uses a handful of both natural and artificial measurements to predict which sections of Arctic satellite images correspond to clouds and which to ice. 
+
+This paper expands on Yu et. al.'s work by exploring some of the data they collected to create their model. We immediately apply our analysis by creating our own classification model to determine from the variables provided whether a surface is cloud-based or ice-based. We constructed three types of models for cloud detection: Logistic Regression, Random Forest, and AdaBoost. We found our Random Forest model to be our most effective classifier in terms of cross-validation accuracy and variance.
+
+<<setup, echo = FALSE, message=FALSE, warning=FALSE>>=
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, cache = TRUE, fig.pos = "H")
+## Loading packages -----------------------------------------------------------
+suppressMessages(library(tidyverse))
+library(stats)
+library(randomForest)
+library(adabag)
+library(ada)
+## Loading source code --------------------------------------------------------
+source('R/load.R')
+source('R/utility.R')
+source('R/utils.R')
+@
+\section{Exploratory Data Analysis}
+
+\subsection{The Data}
+
+The data analyzed in this paper was collected in 1999 from the Multiangle Imaging SpectroRadiometer (MISR), a sensor on board NASA's Terra satellite. MISR's sensor contains nine slightly overlapping cameras, with each camera recording the Earth's surface from a different angle across four spectral bands. While MISR pioneered a new type of remote sensing, the sheer amount of data it creates presents a logistical problem for scientists. In aggregate, the nine MISR cameras cover a 360 kilometer stretch of the Earth's surface. This global coverage creates a lot of data: MISR collects up to 9.0 megabits/second, with an mean rate of 3.3. Using an expert to label this information is inefficient and ineffective. Developing an algorithm that can accurately identify the type of surface from the angular radiances in MISR data would help scientists make sense of how the earth's surface air temperature is changing in a much more effective manner.
+
+While the original data contained nine different angular radiances, the data in this paper contains five, with the four left out being those facing the aft direction. In addition to the five included angles (DF, CF, BF, AF, AN), the data contains coordinates, as well as a label designated from an expert stating whether the observation is a cloud or ice-based surface. The data also contains three measures created by scientists to predict surface. The first, CORR, represents the average correlation of radiation measurements between two different angles (AF/AN and BF/AN.) CORR is supposed to help identify either cloud-free surfaces or very low altitude clouds that blend in with the ice. The second, SD, represents the standard deviation within groups of MISR and helps identify smooth surfaces. In a prediction model, CORR and SD are intended to work in tandem: While CORR may generally identify clouded surfaces, SD helps distinguish between low-cloud and actual ice surfaces. The last variable here, NDAI, measures the difference in average radiation measurements from the DF and AN angles. This is because, over clouds, the DF angle is expected to records higher radiation than AN. This means the gap between DF and AN increases over clouds, so large values of NDAI suggest a clouded surface. Ultimately, these three features are the basis for the prediction model described in the paper.
+
+While the data here presents many challenges, cleanliness was not one of them. We received the data perfectly clean, with no missing values or other irregularities. This structure allowed us to focus our efforts on this project entirely around creating the best model.
+
+\subsection{Plotting Expert Labels and Main Features}
+
+We began our EDA by looking at CORR, SD, and NDAI to investigate their respective relationships with the expert labels provided in the data. Given how the authors described the functions of the features in the paper, we expected to observe some unique qualities. For CORR, we expected it to be able to identify ice but to struggle between separating ice from low clouds. For SD, we expected it to ably identify edges (i.e. where ice begins and clouds end or vice versa.) For NDAI, we expect high values for clouded surfaces. The below graphs show the label (Figure \ref{fig:label}), CORR (Figure \ref{fig:corr}), SD (Figure \ref{fig:sd}), and NDAI (Figure \ref{fig:ndai}) for each of the three images we received:
+<<eda, eval = FALSE, echo = FALSE, message = FALSE, warning = FALSE, cache = TRUE>>=
+##########################
+####### X-Y PLOTS ########
+##########################
+# Combine image datasets 
+AppendMe <- function(dfNames) {
+  do.call(rbind, lapply(dfNames, function(x) {
+    cbind(get(x), source = x)
+  }))
+}
+image <- AppendMe(c("image1", "image2", "image3"))
+
+# plot the expert labeling of three images
+ggplot(image) +
+  geom_point(aes(x = x, y = y, color = factor(label))) + 
+  facet_wrap( ~ source, ncol = 2) +
+  scale_color_manual(name = "Expert label", labels = c("No Cloud", "Unlabeled", "Cloud"), values = c("#00A6FF", "#BFD7EA", "#BCAC8D")) + 
+  # add plot title
+  ggtitle("Expert Labeling for Presence of Clouds") + 
+  # add x label
+  xlab("x coordinate") + 
+  # add y label
+  ylab("y coordinate") + 
+  # load nice theme
+  theme_nice_br
+ggsave(paste0("expertLabeling.png"))
+
+## Point plots of CORR for each image -----------------------------------------
+ggplot(image) +
+  geom_point(aes(x = x, y = y, color = CORR)) + 
+  facet_wrap( ~ source, ncol = 2) +
+  # add x label
+  xlab("x coordinate") + 
+  # add y label
+  ylab("y coordinate") + 
+  # load nice theme
+  theme_nice_br
+ggsave(paste0("corr.png"))
+
+## Point plots of SD for each image -------------------------------------------
+ggplot(image) +
+  geom_point(aes(x = x, y = y, color = SD)) + 
+  facet_wrap( ~ source, ncol = 2) +
+  # add x label
+  xlab("x coordinate") + 
+  # add y label
+  ylab("y coordinate") + 
+  # load nice theme
+  theme_nice_br
+ggsave(paste0("sd.png"))
+
+## Point plots of NDAI for each image -----------------------------------------
+ggplot(image) +
+  geom_point(aes(x = x, y = y, color = NDAI)) + 
+  facet_wrap( ~ source, ncol = 2) +
+  # add plot title
+  # ggtitle("NDAI") + 
+  # add x label
+  xlab("x coordinate") + 
+  # add y label
+  ylab("y coordinate") + 
+  # load nice theme
+  theme_nice_br
+ggsave(paste0("ndai.png"))
+
+
+##########################
+##### DENSITY PLOTS ######
+##########################
+
+## Density graph for NDAI -----------------------------------------------------
+ggplot(images_filter) + 
+  geom_density(aes(x = NDAI, group = factor(label), fill = factor(label)), alpha = 0.5) +
+  scale_fill_manual(name = "label", 
+                    labels = c("No Cloud", "Cloud"), 
+                    values = c("#00A6FF", "#BCAC8D")) + 
+  labs(title = 'NDAI') + 
+  theme_nice_wol
+ggsave(paste0("densityNDAI.png"))
+
+## Density graph for SD -------------------------------------------------------
+ggplot(images_filter) + 
+  geom_density(aes(x = SD, group = factor(label), fill = factor(label)), alpha = 0.5) +
+  scale_fill_manual(name = "label", 
+                    labels = c("No Cloud", "Cloud"), 
+                    values = c("#00A6FF", "#BCAC8D")) + 
+  labs(title = 'SD') + 
+  xlim(0, 40) +
+  theme_nice_woly
+ggsave(paste0("densitySD.png"))
+
+## Density graph for CORR -----------------------------------------------------
+ggplot(images_filter) + 
+  geom_density(aes(x = CORR, group = factor(label), fill = factor(label)), alpha = 0.5) +
+  scale_fill_manual(name = "label", 
+                    labels = c("No Cloud", "Cloud"), 
+                    values = c("#00A6FF", "#BCAC8D")) + 
+  labs(title = 'CORR') + 
+  theme_nice_big_ny
+ggsave(paste0("densityCORR.png"))
+
+## Density graph for AF -------------------------------------------------------
+ggplot(images_filter) + 
+  geom_density(aes(x = AF, group = factor(label), fill = factor(label)), alpha = 0.5) +
+  scale_fill_manual(name = "label", 
+                    labels = c("No Cloud", "Cloud"), 
+                    values = c("#00A6FF", "#BCAC8D")) + 
+  labs(title = 'AF') + 
+  theme_nice_wol
+ggsave(paste0("densityAF.png"))
+## Density graph for AN -------------------------------------------------------
+ggplot(images_filter) + 
+  geom_density(aes(x = AN, group = factor(label), fill = factor(label)), alpha = 0.5) +
+  scale_fill_manual(name = "label", 
+                    labels = c("No Cloud", "Cloud"), 
+                    values = c("#00A6FF", "#BCAC8D")) + 
+  labs(title = 'AN') + 
+  theme_nice_woly
+ggsave(paste0("densityAN.png"))
+
+## Density graph for BF -------------------------------------------------------
+ggplot(images_filter) + 
+  geom_density(aes(x = BF, group = factor(label), fill = factor(label)), alpha = 0.5) +
+  scale_fill_manual(name = "label", 
+                    labels = c("No Cloud", "Cloud"), 
+                    values = c("#00A6FF", "#BCAC8D")) + 
+  labs(title = 'BF') + 
+  theme_nice_big_ny
+ggsave(paste0("densityBF.png"))
+
+## Density graph for CF -------------------------------------------------------
+ggplot(images_filter) + 
+  geom_density(aes(x = CF, group = factor(label), fill = factor(label)), alpha = 0.5) +
+  scale_fill_manual(name = "label", 
+                    labels = c("No Cloud", "Cloud"), 
+                    values = c("#00A6FF", "#BCAC8D")) + 
+  labs(title = 'CF') + 
+  theme_nice_wol
+ggsave(paste0("densityCF.png"))
+
+## Density graph for DF -------------------------------------------------------
+ggplot(images_filter) + 
+  geom_density(aes(x = DF, group = factor(label), fill = factor(label)), alpha = 0.5) +
+  scale_fill_manual(name = "label", 
+                    labels = c("No Cloud", "Cloud"), 
+                    values = c("#00A6FF", "#BCAC8D")) + 
+  labs(title = 'DF') + 
+  theme_nice_big_ny
+ggsave(paste0("densityDF.png"))
+@
+\begin{figure}[!htbp] 
+    \centering
+    \includegraphics[width = 4.5in, height = 2.7in]{extra/expertLabeling.png}
+    \caption{Expert Labeling of Clouds}
+    \label{fig:label}
+\end{figure}
+\begin{figure}[!htbp] 
+\centering
+    \includegraphics[width = 4.5in, height = 2.7in]{extra/corr.png}
+    \caption{Corr}
+    \label{fig:corr}
+\end{figure}
+\begin{figure}[!htbp] 
+    \centering
+    \includegraphics[width = 4.5in, height = 2.7in]{extra/sd.png}
+    \caption{SD}
+    \label{fig:sd}
+\end{figure}
+\begin{figure}[!htbp] 
+    \centering
+    \includegraphics[width = 4.5in, height = 2.7in]{extra/ndai.png}
+    \caption{NDAI}
+    \label{fig:ndai}
+\end{figure}
+
+
+When comparing the expert labels to the three features, all three of our priors hold. It becomes clear that CORR does not clearly discern ice and clouds. We see that SD clearly defines the edges of the clouds in the expert labels, but does a bad job distinguishing the body of both clouds and ice. In addition, we see high values of NDAI on clouded surfaces. One clear trend emerges from these visualizations: NDAI appears to be the best general predictor of cloud surface. NDAI gets the shape and structure of the clouds in each image much more clearly than either SD or CORR. While NDAI certainly has its deficiencies -- for example, it doesn't capture the nuances of clouds (especially clouds with holes) particularly well -- its shortcomings are much less pronounced than CORR (which cannot distinguish well between low-hanging clouds and ice) and SD (which cannot identify bodies of clouds and ice well.)
+
+An additional benefit of NDAI in comparison to SD or CORR is its clearer separation of values. The density graphs below show the distributions for NDAI, SD, and CORR between expert label values equal to -1 (corresponding to ice) and 1 (corresponding to cloud) for all three images combined. As we can see, distributions for SD and CORR overlap much more heavily than the one for NDAI. This overlap makes it difficult to distinguish which CORR values and which SD values suggest specific surfaces. With NDAI, however, the minimal overlap makes it much easier to identify how NDAI reflects the type of surface.
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width = 1.8in, height = 1.8in]{extra/densityNDAI.png}
+    \caption{NDAI}
+    \label{fig:density.ndai}
+    \end{subfigure}%
+    \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width = 2.2in, height = 1.8in]{extra/densitySD.png}
+    \caption{SD}
+    \label{fig:density.sd}
+    \end{subfigure}%
+    \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width = 2.2in, height = 1.8in]{extra/densityCORR.png}
+    \caption{CORR}
+    \label{fig:density.corr}
+    \end{subfigure}
+    \caption{density plot of NDAI, sd, corr}
+    \label{fig:density1}
+\end{figure}
+
+At the same time, while the above graphs do suggest that NDAI is a particularly good indicator, they simultaneously do not suggest that CORR or SD would be particularly bad. In both, we see some separation of distributions. For SD, the distribution for ice is much more compressed around the central tendency and has a lower average value. For CORR, the fat tails of the cloud distribution and the separate mode means it could be used to identify surfaces of a certain CORR value with strong accuracy. At the same time, however, the fact that SD and CORR aren't quite as definitive as NDAI in their predictions led us to then investigate the various angular radiances to see which would pair well with NDAI in our model.
+
+\subsection{Considering Other Factors}
+
+To begin determining which angles would work best in our model, we initially visualized them the same way we visualized NDAI, SD, and CORR -- by plotting all points for each individual image on an x-y coordinate map. This approach was not as helpful here. Unlike the original measures, it was not obvious from these visualizations which angles performed best. As such, in order to save space, we have omitted those visualizations in this paper. We have included density graphs similar to the ones above. As a reminder, to create these graphs, we combined data from all three images into one data set, removed all ambiguous observations (i.e. label = 0), and plotted their densities. The results are in Figure \ref{fig:density2} and Figure \ref{fig:density3}:
+
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width = 1.8in, height = 1.8in]{extra/densityAF.png}
+    \caption{AF}
+    \label{fig:density.af}
+    \end{subfigure}%
+    \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width = 2.2in, height = 1.8in]{extra/densityAN.png}
+    \caption{AN}
+    \label{fig:density.an}
+    \end{subfigure}%
+    \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width = 2.2in, height = 1.8in]{extra/densityBF.png}
+    \caption{BF}
+    \label{fig:density.bf}
+    \end{subfigure}
+    \caption{Density Plot of AF, AN, BF}
+    \label{fig:density2}
+\end{figure}
+\begin{figure}[!htbp]
+    \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width = 1.8in, height = 1.8in]{extra/densityCF.png}
+    \caption{CF}
+    \label{fig:density.cf}
+    \end{subfigure}%
+    \begin{subfigure}{0.3\textwidth}
+    \includegraphics[width = 2.2in, height = 1.8in]{extra/densityAN.png}
+    \caption{AN}
+    \label{fig:density.an}
+    \end{subfigure}
+    \caption{Density Plot of CF, AN}
+    \label{fig:density3}
+\end{figure}
+
+Some of the angles have strong overlapping densities, making them difficult candidates to include in a model. For example, CF and DF both have the lion's share of their observations between 200 and 300 units. This reality makes it initially unclear how these angles could be effectively used by themselves in a model without some adjustment to the measurement or attachment to a separate variable. BF suffers from some of the same problems that CF and DF do. The overlap here, however, is not as dramatic. In fact, BF's mode for ice surface, as well as a good portion of the ice distribution, exist more or less outside of the cloud distribution. AF and AN fall closer to BF than they do to CF and DF in terms of separated values. While both the ice and cloud distributions certainly overlap, the cloud distribution is much more spread out and contains plenty of low values. Meanwhile, the ice distribution for both has most of its values at the end of the cloud distribution, meaning plenty of the values could be identified with relatively few misclassifcation errors.
+
+To further flesh out which variables to ultimately use, we then looked at a correlation matrix of the variables. We did this for a handful of reasons. First, we wanted to see if the numbers corroborated our visual hunches, i.e. see if we can easily identify which variables most closely correspond to label. Because label is a discrete variable, running a correlation basically tells us what percentage of each variable is cloud . This means if the correlation is negative, that tells us what percentage of each variable is ice. Second, we wanted to know how the variables correlated with each other. This would be useful for our model to keep us from considering variables that are highly correlated, thus introducing problems of collinearity.
+<<correlation-matrix, eval = FALSE, echo = FALSE, message = FALSE, warning = FALSE, cache = TRUE>>=
+## Running correlation --------------------------------------------------------
+image_cor <- cor(images_filter[,3:11], images_filter[,3:11])
+
+## Preparing correlation table ------------------------------------------------
+upper <- image_cor
+upper[upper.tri(image_cor)] <- ""
+upper <- as.data.frame(upper)
+@
+\begin{table}
+\centering
+\begin{tabular}{c| c c c c c c c c c}
+\hline
+     & label & NDAI & SD & CORR & DF & CF & BF & AF & AN \\ [0.5ex] 
+     \hline
+   label & 1 &  &  &  &  &  &  &  &  \\
+   NDAI & 0.758 & 1 &  &  &  &  &  &  &  \\
+   SD & 0.436 & 0.647 & 1 &  &  &  &  &  &  \\
+   CORR & 0.551 & 0.535 & 0.407 & 1 &  &  &  &  &  \\
+   DF & 0.011 & -0.164 & -0.197 & 0.148 & 1 &  &  &  &  \\
+   CF & -0.288 & -0.438 & -0.407 & -0.229 & 0.850 & 1 &  &  &  \\
+   BF & -0.448 & -0.571 & -0.491 & -0.518 & 0.670 & 0.919 & 1 &  &  \\
+   AF & -0.507 & -0.612 & -0.514 & -0.684 & 0.538 & 0.826 & 0.962 & 1 &  \\
+   AN & -0.505 & -0.609 & -0.507 & -0.746 & 0.489 & 0.780 & 0.926 & 0.982 & 1 \\ [1ex]
+   \hline
+\end{tabular}
+\caption{Correlation Matrix of Features}
+\label{tab:corr.mat}
+\end{table}
+
+The correlation matrix in Table \ref{tab:corr.mat} backs up some our initial claims while also producing some mildly surprising results. First, our expectation that DF and CF would be bad predictors is confirmed - they correctly identify the surface only 10\% and 28\% of the the time, respectively. Additionally, it is clear that, like we expected, NDAI is the best predictor, getting it right over 75\% of the time. The rest of the results are relatively close together, with SD, AF, AN, and CORR all falling between ~43\% and ~55\%. CORR has a higher correlation than SD, something we expected given the more spread out distributions in the CORR density graphs. AF and AN both having better correlation than SD is a mild surprise, but one that makes sense when we revisit the graphs given this information. 
+
+In terms of correlations with each other, we should take notice of a few variables. AF and AN have almost an identical correlation with label, suggesting that only one of them needs to be included in a model. In terms of the artificial features, none of them have very high correlations with any of the angles, with the highest coming in around 60\%. This is good for the model - the differences suggest that the angles reveal somewhat different information from the other features. One thing to keep in mind, however, is the high correlation between angles. For example, AF and AN have a correlation of .98, AF and BF have a correlation of .96, CF and CF have a correlation of .91, etc. This means we need to be careful with the angles. We likely do not need to include all of them in our model in order to gain the insights we want, as some of them display strong collinearity with others.
+
+\section{Modeling}
+
+Following our EDA, we began to build our classification using the combined image data. In creating the infrastructure necessary to construct and run our models, we grappled with some tough questions around constructing our test set, designing our cross-validation procedure.
+
+\paragraph{Test Set} Before we begin constructing our model, we must separate our data into a training set and a test set. This split is necessary for us so that we can later test our created model on data with which it has not interacted. This will ultimately allow us to gauge our model's effectiveness. As such, the primary goal while separating your data into a training and test set is to create a test set that will best reflect the classification model's performance on unseen or unknown data. Initially, given the three images provided, one may think it natural to simply put two images in your training set and one in your test set. This type of separation can negatively impact your test set, however, if there exists a biased distribution of data in the image. This bias may interfere with your classification model, leading to an analysis that doesn't accurately reflect your model's performance. Due to the problems this approach can introduce, we opted instead to divide all three images into many, many blocks and then randomly choose some blocks from each image. We believed this the best way to not introduce any bias into our test set so we can have a better understanding of our model in the end.
+
+\paragraph{Cross-validation} Before we discuss our cross-validation procedure, let's clarify the terminology we will use throughout our discussion. $K$-fold cross validation means dividing the data into $K$ folds. Each time we run cross-validation, we fit the model using $K-1$ folds. We refer to these folds as the \textit{training} set. We then use the one remaining fold to evaluate the performance on our training set. We refer to the remaining fold as the \textit{validation} set). The training set and validation set from cross-validation are separate from the aforementioned training set and test set of our data. In short, cross-validation is something we do within the overall training set.
+
+In designing cross-validation, there are multiple concerns to consider. First, we considered whether we wanted to create a validation set on which we can eventually test our training sets to see how strongly they predict label. Keeping a validation set is not required, however, and deciding to use one depends heavily on one's ultimate goal. If our goal is to build the best possible classifier from the available data, we should maximize the amount of data we feed into our cross-validation. This would mean using all our data and forgoing a validation set. At the same time, if our goal is to build a classifier with an accurate and tested performance estimate, then we should create a validation set and leave it untouched until the end, after we find the best classification model from the training set. This method is particularly useful if, for example, we only plan to deploy our classifier if its performance meets a certain threshold. Ultimately, we decided it would be best to have a validation set so we can test our results and a measurable estimate of our model's performance instead of simply trusting that a model built on the maximum amount of available would work out best.
+
+Next, we had to consider and establish our classification methodology. First, we decided to treat each pixel as a sample, with the variables (NDAI, CORR, SD, DF, CF, BF, AF, AN) as features. This does create a large dependence among some samples, which violates some of the assumptions our model. This has a hugely negative impact theoretically, as this means our accuracy is not theoretically guaranteed. In practice, however, we did not find this violation to be a problem. From an algorithmic viewpoint, this approach works fine due to the fact that the algorithms are just fitting the training data and thus can apply to dependent data. Regardless of this lack of impact, the theoretical implication of our decision should be noted. Additionally, we made the decision to include only the information about each particular pixel for each data sample, i.e. each pixel.Ideally, we would include, in addition to each pixel's information, the information of neighboring pixels that share the same label. This additional information would allow us to execute more sophisticated methods. For example, the introduction of spatial data like this would allow for a linear model that builds upon a convolution filter. Due to time constraints, however, we did not have the ability to execute this more complex and time-consuming model. Models like these could be subjects of future analyses.
+
+Last, we needed to decide how to divide our data into different folds. A simple way would be to, of course, randomly divide data into the desired amount of folds without any other considerations. This approach can be problematic, however, because it causes the validation accuracy to be an incorrect estimate of the test accuracy during cross-validation. This is because simple random sampling will lead to a validation set with pixels that, in the original data set, will be adjacent to pixels in the training set. Because adjacent pixels tend to have similar features and labels, this leads to a training set that, in some sense, already contains the validation set. Because of the similarities shared between the training and validation set in this simply randomization, the validation accuracy of our training set will be overly optimistic. In order to avoid this predicament, we decided to divide the data set into four blocks according to quadrant so that adjacent pixels exist in the same folds. From there, we performed 12-fold cross-validation.
+<<modeling, eval = FALSE, echo = FALSE, message = FALSE, warning = FALSE, cache = TRUE>>=
+# preprocessing for CV, merge data together
+img <- BlockData(image1, image2, image3)
+
+# Logistic regression
+  #result <- BlockCVAndVisualization(img, LogisticRegression, "probs")  
+  result <- BlockCrossValidation(img, LogisticRegression)
+  print(result)
+
+# Random Forest
+  #result <- BlockCrossValidation(img, RandomForest)
+  result <- BlockCVAndVisualization(img, RandomForest, "label")
+  print(result)
+
+#Adaboost
+  #result <- BlockCVAndVisualization(img, AdaBoost, "label")
+  result <- BlockCrossValidation(img, AdaBoost)
+  print(result)
+@
+\subsection{Logistic Regression}
+
+First, we ran logistic regression with NDAI, CORR, SD. Because these features were used heavily by the authors of the paper, we thought it would be a useful baseline for us to begin our analysis. We ran logistic regressions at different cutoff values, and then used cross-validation to pick the best cutoff value, i.e. the one with the highest cross-validation accuracy. The relationship between cross-validation accuracy and cutoff value for our logistic regressions is displayed in the following plot:
+
+\begin{figure}[!htbp] 
+	\centering
+		\centering
+		\includegraphics[height = 2.4in]{extra/LR-cutoff.png}
+		\caption{Logistic regression CV accuracy and cutoff values}
+		\label{fig:rf-tree}
+\end{figure}
+
+As the graph above clearly shows, 0.3 is has the highest cross-validation accuracy and thus serves as the best choice of cutoff value. By choosing a cutoff value as 0.3, we obtained the mean training accuracy 0.897 and standard deviation 0.010. When we run cross-validation, we obtain a cross-validation accuracy of 0.873 and standard deviation 0.113. This will be our threshold to hopefully surpass in our upcoming classification models.
+
+\subsection{Random Forest}
+
+We then ran a random forest with the three original features, in addition to DF, one of the angular radiances. We did to this to see whether introducing the readings from one of the angles would produce a more accurate classification model. We ran our random forests with a different number of trees. Additionally, for the decision trees in our random forest, we randomly selected 2 features to grow them. We used cross-validation in order to tune the number of trees. The relationship between cross validation accuracy and the number of decision trees is as follows.
+
+\begin{figure}[!htbp]
+	\centering
+		\centering
+		\includegraphics[height = 2.4in]{extra/RF-tree.png}
+		\caption{Random forest CV accuracy and the number of trees}
+		\label{fig:rf-tree}
+\end{figure}
+
+As the graph shows, we effectively reach our maximum cross-validation accuracy around 40 decision trees. While we see a marginal increase in cross-validation accuracy around 100 and 150 trees, the difference is very small and not worth the extra time and computation. Choosing the number of decision trees as 40, we obtain a cross-validation accuracy of 0.878 and standard deviation 0.112. This slightly outperforms the cross-validation accuracy we witnessed from our logistic regression, making random forest the better of the two models. With unlimited time, we would have fine-tuned some of the hyper-parameters in our random forest, such as the set of features or the the number of randomly selected features. Given time constraints, however, we decided to conduct another classification model to set if we could top our random forest cross-validation accuracy instead of spending time tweaking our random forest.
+
+\subsection{AdaBoost}
+
+Next, we used Adaboost with the same features that we used for random forest (NDAI, CORR, SD, and DF.) We thought Adaboost could be a useful classification model because of its natural ability to adapt adjust our "weak learners," thus leading to more accurate classification. At the same time, however, we recognize the problems Adaboost has with noise and outliers. Given Adaboost's problems with noise and outliers, we must keep in mind that it requires early stopping in order to be an effective algorithm. Because of this reality, the iteration number of Adaboost is a hyper-parameter. 
+
+Below are three graphs. The first and second are the training error for Adaboost across iterations for, respectively, the training set and the validation set. Additionally, the third graph plots the convergence of training error and test error in cross validation, and calculated mean cross validation error for all iterations. We created this graph in order to determine the best iteration number for our Adaboost.
+<<adaboost, eval = FALSE, echo = FALSE, message = FALSE, warning = FALSE, cache = TRUE>>=
+# define empty dataframes
+ad.train.e <- data.frame(matrix(ncol = 12, nrow = 0))
+ad.test.e <- data.frame(matrix(ncol = 12, nrow = 0))
+names <- paste("CV", 1:12, sep = "")
+colnames(ad.train.e) <- names
+colnames(ad.test.e) <- names
+
+for (i in 1:12){
+train <- filter(img, block != i)
+test  <- filter(img, block == i)
+		
+binaryTrain <- filter(train, label != 0)
+binaryTest  <- filter(test, label != 0)
+
+ad <- ada(factor(label) ~ NDAI + CORR + SD + DF, 
+          data = binaryTrain, iter = 15, nu = 0.8, type = "real")
+ad <- addtest(ad, binaryTest[, 4:11], binaryTest[, 3])
+# training error
+ad.train.e[1:15, i] <- ad$model$errs[, 1] 
+# testing error
+ad.test.e[1:15, i] <- ad$model$errs[, 3]
+}  
+
+# training error ---------------------------------------------------------
+ad.train.e %>%
+  gather(key = "CV", value = "train.error") %>%
+  ggplot(aes(x=rep(1:15, 12), y=train.error, group = CV)) +
+  geom_line(aes(color = CV))  +
+  # add plot title
+  ggtitle("Training Error of Adaboost Across Iterations") + 
+  # change legend title and label
+  scale_fill_discrete(name = "Cross Validation", label = paste(1:12)) +
+  # add x label
+  xlab("Iteration 1:15") + 
+  # add y label
+  ylab("Training Error") + 
+  # load nice theme
+  theme_nice_wol
+
+ggsave(paste0("adaTrain.png"), width = 6.5, height = 4.51)
+
+
+# testing error ---------------------------------------------------------
+ad.test.e %>%
+  gather(key = "CV", value = "test.error") %>%
+  ggplot(aes(x=rep(1:15, 12), y=test.error, group = CV)) +
+  geom_line(aes(color = CV))  +
+  # add plot title
+  ggtitle("Validation Error of Adaboost Across Iterations") + 
+  # change legend title and label
+  scale_fill_discrete(name = "Cross Validation", label = paste(1:12)) +
+  # add x label
+  xlab("Iteration 1:15") + 
+  # add y label
+  ylab("Test Error") + 
+#  scale_x_discrete(expand=c(0.1, 0.9)) +
+#  geom_dl(aes(label = CV), method = list( "first.points", cex = 0.8)) +
+  theme_nice
+
+ggsave(paste0("adaTest.png"), width = 7.49, height = 4.51)
+@
+\begin{figure}[!htbp] 
+	\centering
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\includegraphics[height = 1.8in]{extra/adaTrain.png}
+		\caption{Training Error}
+		\label{fig:ada1}
+	\end{subfigure}%
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\includegraphics[height = 1.8in]{extra/adaTest.png}
+		\caption{Validation Error}
+		\label{fig:pred5}
+	\end{subfigure}
+	\caption{Training and validation error convergence of AdaBoost }
+	\label{fig:ada2}
+\end{figure}
+
+\begin{figure}[!htbp]
+	\centering
+		\centering
+		\includegraphics[height = 2.4in]{extra/ada-itr.png}
+		\caption{AdaBoost CV accuracy and the number of iterations}
+		\label{fig:ada-itr}
+\end{figure}
+
+As the third graph shows, AdaBoost achieves the best cross validation performance when the number of iterations is 4. Choosing the number of iteration as 4, we obtain the cross validation accuracy 0.872 and standard deviation 0.139. This accuracy falls short of the cross-validation accuracy for both our logistic regression and our random forest. This makes Adaboost our least effective classification model.
+
+\subsection{Misclassification Pattern of Random Forest}
+<<misclassificstion-error, echo = FALSE, message = FALSE, warning = FALSE, cache = TRU>>=
+mmce <- rep(NA, 12)
+confusion <- as.list(rep(NA, 12))
+img[which(img$block == 5)[1], 'label'] <- -1
+
+for (i in 1:12){
+train <- filter(img, block != i)
+test  <- filter(img, block == i)
+		
+result <- RandomForest(train, test)
+tmpTrain <- result$trainAcc
+tmpTest <- result$testAcc
+binaryTest <- result$binaryTest
+
+# plot the predicted labeling of three images
+p <- ggplot(binaryTest) +
+  geom_point(aes(x = y, y = x, color = factor(pred))) + 
+#  facet_wrap( ~ Image, ncol = 2) +
+  scale_color_manual(name = "", labels = c("No Cloud", "Cloud"), values = c("#00A6FF", "#BCAC8D")) + 
+  # add plot title
+  ggtitle("Predicted Labeling") + 
+  # add x label
+  xlab("x coordinate") + 
+  # load nice theme
+  theme_nice_woly
+p
+ggsave(paste0("rf", i, "Pred.png"))
+
+
+# plot the expert labeling of three images
+q <- ggplot(binaryTest) +
+  geom_point(aes(x = y, y = x, color = factor(label))) + 
+#  facet_wrap( ~ Image, ncol = 2) +
+  scale_color_manual(name = "", labels = c("No Cloud", "Cloud"), values = c("#00A6FF", "#BCAC8D")) + 
+  # add plot title
+  ggtitle("Expert Labeling for Presence of Clouds") + 
+  # add x label
+  xlab("x coordinate") + 
+  # add y label
+  ylab("y coordinate") + 
+  # load nice theme
+  theme_nice_wol
+
+q
+ggsave(paste0("rf", i, "Expert.png"))
+
+# confusion matrix
+cm <- table(actual = binaryTest$label, fitted = binaryTest$pred)
+mmce[i] <- 1 - (sum(diag(cm))/sum(cm))
+confusion[[i]] <- cm
+}
+@
+\begin{table}[!htbp]
+	\centering
+	\begin{tabular}{c c c c c c c c c c c c} 
+		\hline
+		CV1 & CV2 & CV3 & CV4 & CV5 & CV6 & CV7 & CV8 & CV9 & CV10 & CV11 & CV12\\ [0.5ex] 
+		\hline
+		0.265 & 0.074 & 0.083 & 0.015 & 0.025 & 0.218 & 0.041 & 0.002 & 0.248 & 0.165 & 0.318 & 0.024 \\ [1ex] 
+		\hline
+	\end{tabular}
+	\caption{Random forest misclassification Error of 12-fold Cross Validation}
+	\label{tab1}
+\end{table}
+
+Between the three classification models, the random forest achieved the highest accuracy. The misclassification test error of 12-fold cross validation is shown in table \ref{tab1}. There, we can see that the average misclassfication error is $0.122$. Figure \ref{fig:block5} shows the misclassification error in the bottom left quadrant in Image 2. As we can see there, some data points in the center are misclassified. Comparing Figure \ref{fig:block5} with Figure \ref{fig:sd}, we can see the misclassified area has much higher SD compared with other areas in image 2. Similarly, if we compare Figure \ref{fig:pred10} with Figure \ref{fig:corr}, we once again see a  higher correlation in the misclassified area as well. 
+
+Figure \ref{fig:block10} shows the misclassification error in the bottom right quadrant in Image 3, and the misclassified data points concentrated in the bottom of Figure \ref{fig:pred10}. Comparing it with Figure \ref{fig:ndai}, it's difficult to distinguish cloud from non-cloud in the bottom of Image 3 in Figure \ref{fig:ndai}. The high similarity of NDAI might contribute to the misclassification in Figure \ref{fig:pred10}. Therefore, we conclude that our classification model does a good job in making decision rules according to features, however there might be no satisfying cut-off method for binary classification in this problem. 
+
+\begin{figure} [!htbp]
+	\centering
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\includegraphics[height = 1.8in]{extra/rf5Expert.png}
+		\caption{Expert Label}
+		\label{fig:expert5}
+	\end{subfigure}%
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\includegraphics[height = 1.8in]{extra/rf5Pred.png}
+		\caption{Predicted Label}
+		\label{fig:pred5}
+	\end{subfigure}
+	\caption{Misclassification: bottom left quadrant in Image 2}
+	\label{fig:block5}
+\end{figure}
+
+\begin{figure}[!htbp] 
+	\centering
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\includegraphics[height = 1.8in]{extra/rf10Expert.png}
+		\caption{Expert Label}
+		\label{fig:expert10}
+	\end{subfigure}%
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\includegraphics[height = 1.8in]{extra/rf10Pred.png}
+		\caption{Predicted Label}
+		\label{fig:pred10}
+	\end{subfigure}
+	\caption{Misclassification: bottom right quadrant in Image 3}
+	\label{fig:block10}
+\end{figure}
+
+
+\section{Conclusion}
+In this report we have tried using logistic regression, random forest and AdaBoost to classify the cloud data. We found the best model (random forest) and the best hyper-parameter by cross validation, although different models perform similarly.
+
+We noted that the training accuracy has smaller variance than the validation accuracy in cross validation. This is due to the nature that training set and validation set are quite different -- each quadrant of the images can be quite different from others. Also, the scarcity of the training data does not allow us to learn models that are robust to the distribution shift. With this in mind, we expect our best classifier will have an accuracy drop on unseen data.
+
+\end{document}
