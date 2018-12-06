@@ -1,0 +1,74 @@
+---
+title: 'Lab #5 - FMRI Imaging'
+author: "Todd Faulkenberry"
+date: "11/24/2018"
+output: pdf_document
+---
+
+```{r, echo = FALSE, message = FALSE}
+## Load in packages -----------------------------------------------------------
+suppressMessages(library(tidyverse))
+library(caret)
+library(corrplot)
+library(ggridges)
+
+## Load in source scripts -----------------------------------------------------
+source('R/load.R')
+source('R/clean.R')
+source('R/utils.R')
+```
+
+
+## Introduction
+
+This paper builds on a study conducted by Kendrick N. Kay et. al., and published in the magazine Nature in March 2008. The paper, entitled "Identifying natural images from human brain activity," explains the authors' use of a decoding method that analyzes functional Magnetic Resonance Imagine (fMRI) data of a test subject in order to identify a specific image seen by that subject while the fMRI was collected. The implications of a such a finding are stunning: With a well-constructed model, scientists may be able use data measuring human brain activity to recreate the human visual experience.
+
+[Insert summary of analysis here]
+
+## The Data
+
+The fMRI data used in the study was collected from the Primary Visual Cortex (V1), the earliest, simplest, and most studied visual area of the brain. In humans, it is located at the back of brain. Because of its foundational use in the brain and the role it play its pattern recognition, the primary visual cortex should be an area with a lot of activity when an observer is shown an image. 
+
+The data provided looks at 20 voxels - three-dimensional cube-like units - in the V1. For each voxel, we have its fMRI reading for each  of the 1750 image distilled into a single value (meaning a 1750 X 20 dataframe.) Additionally, for each of those 1750 images, we have a measurement of 10921 variables called gabor features. Gabor features represent the initial image by breaking down its feature into different parts and measures the tuning of these different parts across space, orientation, and spatial frequency. In this project, we are tasked with using the gabor features to predict the brain's response for future images at the aforementioned 20 voxels.
+
+This data presents a handful of interesting problems that must be determine before we begin modeling. First, and simplest, is transforming the data so that it is ready for analysis. In order to do this, I converted the four files provideed in our .RData file into dataframes. I then joined the fit_feat and resp_dat into one dataframe so we can compare the relationships between the gabor features and the fMRI readings at each voxel.
+
+
+
+### Preprocessing
+
+Need to do this section. Need to decide how to eliminate some parameters (see Elements of Statistical Learning?) Talk about how removing some predictors beforehand is necessary and how EoSL discusses how this is quantitatively sound.
+
+How should we determine what to eliminate? First, we look at near zero variance predictors. (explain what this function does.) This method found 512 near zero variance predictors out of the 10921 provided. We eliminate these, bring down our predictors to 10409. Reocgnize the risks of this but also recognize that it will "solve the problem" and give the sheer amount of predictors eliminating the near-zero won't have huge impact. (see more here https://tgmstat.wordpress.com/2014/03/06/near-zero-variance-predictors/) Caret vignette also covers why non-zero variance predictors are dangerous in CV.
+
+In addition to eliminating the 512 near-zero variance variables above, we centered and scaled the remaining 10,410 variables. (Insert justification for centering and scaling) We did all three of these processes through the preProcess() function in Caret.
+
+### Subsetting the Data
+
+Our next problem is subsetting the data into training, test, and validation set. Luckily, we were provided a natural validation set of 120 images. These images were used by the original study as a validation set for their modeling, and we will do the same here. This data will only be used at the end to assess our final model.
+
+Next, we must consider how to divide the rest of the data into training and test sets. Because we're using this two data sets to refine our model selecxtion, we have multiple considerations. First, we must consider the state of our data. We have relative few observations, and given the amount of data collected from the study, we have many, many more predictors than observations. Second, we must consider what we're measuring: The fMRI at different voxels. Given that some voxels may be wildly different from others, it may not make sense to fit a general model over the entire dataset. 
+
+Given the limited amount of observations are the need to predict for each voxel, we decided to subset our data with 10-fold cross validation for each of the 20 voxels. While this will be computaionally expensive as we will eventually run cross-validation hundreds of times, it presents a handful of significant benefits. Primarily, it allows us to constructs better model. By dividing into 10 folds, we're maximizing our available data. Averaging our results across the cross-validations should provide us with a less biased estimator (though it may introduce variance.) Additionally, running CV for each individual voxel should lead to more accurate results for each voxel instead of a more general model that may not capture each voxel's nuance.
+
+(Filter to the ~1000 predictors with the highest correlation for each voxel)
+
+## Q2 (Regression / LASSO)
+
+LASSO helps avoid overfitting by penalizing model complexity (i.e. having too many predictors in our data)
+
+Greatly reduces variance by reducing MSE but may introduce bias
+
+LASSO easier to interpret than Ridge Regression b/c most coefficients are pushed to exactly zero.
+
+(Skip over extra smoothing parameters, just do Ridge)
+
+10, 11, 13, 14, 16, 17, 19 all had lowered correlation
+
+## Q3 (Correlation b/t fitted / observed)
+
+## Q4 (Diagnostics)
+
+## Q5 (Interpretation)
+
+## Q6 (Prediction)
