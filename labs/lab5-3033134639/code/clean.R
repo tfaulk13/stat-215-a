@@ -23,6 +23,8 @@ val_feat <- data.frame(val_feat)
 # Turn loc_dat into a data.frame
 loc_dat <- data.frame(loc_dat)
 
+# Combined
+combined <- cbind(fit_feat, resp_dat)
 
 ## Preprocessing --------------------------------------------------------------
 

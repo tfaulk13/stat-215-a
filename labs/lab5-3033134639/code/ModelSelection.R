@@ -7,6 +7,12 @@ cv_model <- trainControl(method = 'cv',
                          number = 10,
                          verboseIter = TRUE)
 
+## Splitting ------------------------------------------------------------------
+
+inTrain <- createDataPartition(y = combined$voxel1, p = 0.8, list = FALSE)
+training <- fit_feat[inTrain,]
+testing <- fit_feat[-inTrain,]
+
 
 ## Voxel 1 --------------------------------------------------------------------
 
@@ -622,7 +628,7 @@ lassoFit19 <- train(voxel19 ~ .,
 cor_v20 <- data.frame(cor(resp_dat$voxel20, transformed))
 
 # Grabbing cors higher than 0.2
-non_zero_cor <- which(cor_v20 > 0.2 | cor_v20 < -0.2)
+non_zero_cor <- which(cor_v20 > 0.05 | cor_v20 < -0.05)
 
 # Select those columns
 df_v20 <- transformed %>%
@@ -646,4 +652,12 @@ lassoFit20 <- train(voxel20 ~ .,
                    method = 'rqlasso',
                    trControl = cv_model)
 
-# Hold for other regression
+# AIC Test
+test20 <- train(voxel20 ~ .,
+                    data = training,
+                    method = 'glmStepAIC',
+                    trControl = cv_model)
+
+
+## Prediction -----------------------------------------------------------------
+prediction <- predict(lassoFit1, newdata = val_feat)
