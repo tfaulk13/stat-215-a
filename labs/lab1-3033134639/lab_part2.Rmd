@@ -1,0 +1,46 @@
+---
+title: "Lab 1 Part 2 - Stat 215a"
+author: "Todd Faulkenberry"
+date: "10/4/2018"
+output: pdf_document
+---
+
+```{r, echo = FALSE, message = FALSE}
+suppressMessages(library(tidyverse))
+library(tidyverse)
+library(lubridate)
+
+
+source('R/load.R')
+source('R/clean.R')
+```
+
+
+
+```{r}
+ggplot(data = all_data, aes(x = temperature)) +
+  geom_density(adjust = 1, color = "#c03728") +
+  geom_density(adjust = 2, color = "#919c4c") +
+  geom_density(adjust = 3, color = "#fd8f24") +
+  geom_density(adjust = 4, color = "#828585") +
+  geom_density(adjust = 5, color = "#6f5438") +
+  labs(title = "Gaussian Density Plot for Different Bandwidths",
+       x = "Temperature",
+       y = "Density") +
+  theme_pomological()
+```
+
+
+```{r}
+ggplot(data = all_data, aes(x = temperature)) +
+  geom_density(adjust = 1, color = "#c03728") +
+  geom_density(adjust = 2, color = "#919c4c") +
+  geom_density(adjust = 3, color = "#fd8f24") +
+  geom_density(adjust = 4, color = "#828585") +
+  geom_density(adjust = 5, color = "#6f5438") +
+  labs(title = "Gaussian Density Plot for Different Bandwidths",
+       x = "Temperature",
+       y = "Density")
+  theme_pomological()
+```
+
